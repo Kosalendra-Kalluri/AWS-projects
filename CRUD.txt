@@ -1,4 +1,4 @@
-AWS project
+AWS project on "How to create a crud serverless api gateway using AWS dynamodb, AWS lambda, AWS gateway"
 
 
 -> create a dynamodb table with name product-inventory and the primary key as product id
@@ -25,3 +25,158 @@ AWS project
    item from the database. Now coming to products path where we are going to use get method where we want all the products from our database
    and the configuration of our api is done now it's our time to deploy that, hit on that deploy button and then create a new stage with 
    name "prod" and then deploy it. 
+-> Now its time to write the code in lambda section of the AWS go to the code part and then in the lambda_function.py write the code :
+
+
+
+import boto3
+import json
+from custom_encoder import CustomEncoder
+import logging
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+dynamodbTableName = 'product-inventory'
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table(dynamodbTableName)
+
+getMethod = 'GET'
+postMethod = 'POST'
+patchMethod = 'PATCH'
+deleteMethod = 'DELETE'
+healthPath = '/health'
+productPath = '/product'
+productsPath = '/products'
+
+def lambda_handler(event, context):
+    logger.info(event)
+    
+    httpMethod = event['httpMethod']
+    path = event['path']
+    
+    try:
+        if httpMethod == getMethod and path == healthPath:
+            response = buildResponse(200)
+        elif httpMethod == getMethod and path == productPath:
+            response = getProduct(event['queryStringParameters']['productid'])
+        elif httpMethod == getMethod and path == productsPath:
+            response = getProducts()
+        elif httpMethod == postMethod and path == productPath:
+            response = saveProduct(json.loads(event['body']))
+        elif httpMethod == patchMethod and path == productPath:
+            requestBody = json.loads(event['body'])
+            response = modifyProduct(requestBody['productid'], requestBody['updateKey'], requestBody['updateValue'])
+        elif httpMethod == deleteMethod and path == productPath:
+            requestBody = json.loads(event['body'])
+            response = deleteProduct(requestBody['productid'])
+        else:
+            response = buildResponse(404, 'Not Found')
+    except Exception as e:
+        logger.exception('Unhandled exception.')
+        response = buildResponse(500, {'Message': 'Internal Server Error', 'Error': str(e)})
+    
+    return response
+
+def getProduct(productid):
+    try:
+        response = table.get_item(Key={'productid': productid})
+        if 'Item' in response:
+            return buildResponse(200, response['Item'])
+        else:
+            return buildResponse(404, {'Message': f'Productid: {productid} not found'})
+    except Exception as e:
+        logger.exception('Error getting product.')
+        return buildResponse(500, {'Message': 'Error getting product', 'Error': str(e)})
+
+def getProducts():
+    try:
+        response = table.scan()
+        result = response['Items']
+        
+        while 'LastEvaluatedKey' in response:
+            response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+            result.extend(response['Items'])
+            
+        body = {'Products': result}
+        return buildResponse(200, body)
+    except Exception as e:
+        logger.exception('Error getting products.')
+        return buildResponse(500, {'Message': 'Error getting products', 'Error': str(e)})
+
+def saveProduct(requestBody):
+    try:
+        table.put_item(Item=requestBody)
+        body = {
+            'Operation': 'SAVE',
+            'Message': 'SUCCESS',
+            'Item': requestBody
+        }
+        return buildResponse(200, body)
+    except Exception as e:
+        logger.exception('Error saving product.')
+        return buildResponse(500, {'Message': 'Error saving product', 'Error': str(e)})
+
+def modifyProduct(productid, updateKey, updateValue):
+    try:
+        response = table.update_item(
+            Key={'Productid': productid},
+            UpdateExpression=f'set {updateKey} = :value',
+            ExpressionAttributeValues={':value': updateValue},
+            ReturnValues='UPDATED_NEW'
+        )
+        body = {
+            'Operation': 'UPDATE',
+            'Message': 'SUCCESS',
+            'UpdatedAttributes': response
+        }
+        return buildResponse(200, body)
+    except Exception as e:
+        logger.exception('Error modifying product.')
+        return buildResponse(500, {'Message': 'Error modifying product', 'Error': str(e)})
+
+def deleteProduct(productid):
+    try:
+        response = table.delete_item(
+            Key={'productid': productid},
+            ReturnValues='ALL_OLD'
+        )
+        body = {
+            'Operation': 'DELETE',
+            'Message': 'SUCCESS',
+            'DeletedItem': response
+        }
+        return buildResponse(200, body)
+    except Exception as e:
+        logger.exception('Error deleting product.')
+        return buildResponse(500, {'Message': 'Error deleting product', 'Error': str(e)})
+
+def buildResponse(statusCode, body=None):
+    response = {
+        'statusCode': statusCode,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+        }
+    }
+    if body is not None:
+        response['body'] = json.dumps(body, cls=CustomEncoder)
+    return response
+
+-> Now create another file in the same way with name custom_encoder.py and write the code :
+
+
+import json
+
+from decimal import Decimal
+
+class CustomEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        
+        return json.JSONEncoder.default(self, obj)
+
+-> Hit the deploy option and then go to postman and check for the gateway's health and if the products are adding, deleting, updating, or if you can go through all the products available or not I'm pretty confident that you can find your self succefull using the above provided.
+
+***********************************************************************COMPLETED CRUD PROJECT AWS******************************************************************
