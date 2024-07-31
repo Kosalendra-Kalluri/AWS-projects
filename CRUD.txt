@@ -1,0 +1,27 @@
+AWS project
+
+
+-> create a dynamodb table with name product-inventory and the primary key as product id
+-> next navigate to IAM to create a role, click on roles and then create role then choose the use case as lambda.
+   Now click on next to add the permissions to it which are
+	1)dynamodb full access
+	2)cloudwatch full access
+   now click on next to add name to the role which is "serverless-api-role" and then click on create. Now we can move on to create a lambda
+   function for api code
+-> navigate to lambda and then create function then the function name is "serverless-api-lambda" and then select the language as python 
+   since you are doing it in python language so i am selecting "python 3.9". Under the permissions section we use the role we just created
+   and then click on create function. in the configurations below change the timeout from 3 secs to 1 min and if you are having large date 
+   then increase the data from 128mb to 500mb or else leave it alone and click on save. 
+-> Now it's time to create the api gateway to connect everything, navigate to api gateway in that select the rest api but not the rest api
+   private, then click on build and then give the api name as "severless-api" and then hit the create button. Now we are now going to 
+   create some resources. hit on create resource give a resource name as "health" and then create it. and then repeat it with name as 
+   "product" which will do operations for single product and then we create the resourse "products" which will do operations on multiple 
+   products. 
+-> Now select the health resourse under which we will create get method to check if the api is healthy or not. Under which we will select
+   the method type as get and also check the lambda proxy integration and also choose the lambda function we created earlier. Under the 
+   product resource we will have a get method where we will have a single product leave the remaining changes as above. under the product 
+   section itself create a post method which will insert into the database. next is the patch method under the product resource where we
+   will want to modify a single item. finally we are going to have a delete method under the product resource where we want to delete an
+   item from the database. Now coming to products path where we are going to use get method where we want all the products from our database
+   and the configuration of our api is done now it's our time to deploy that, hit on that deploy button and then create a new stage with 
+   name "prod" and then deploy it. 
